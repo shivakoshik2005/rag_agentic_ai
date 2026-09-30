@@ -9,6 +9,8 @@ GROQ_API_KEY = os.getenv("GROQ_API_KEY")
 LLM_MODEL = "llama-3.1-8b-instant"
 LLM_FALLBACK_MODELS = [
     "llama-3.3-70b-versatile",
+    "llama-3.2-11b-vision-instruct",
+    "llama-3.2-3b-preview",
     "llama3-70b-8192",
     "mixtral-8x7b-32768",
 ]

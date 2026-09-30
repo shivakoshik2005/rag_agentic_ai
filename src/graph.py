@@ -23,7 +23,7 @@ class AgentState(TypedDict):
     score: float
 
 def get_active_groq_llm(api_key: str):
-    """Attempt to instantiate a functional ChatGroq client by testing active model strings."""
+    """Instantiate ChatGroq with primary model, trying fallbacks if necessary."""
     candidate_models = [LLM_MODEL] + LLM_FALLBACK_MODELS
     last_exception = None
 
@@ -35,21 +35,21 @@ def get_active_groq_llm(api_key: str):
                 groq_api_key=api_key,
                 max_retries=1
             )
-            # Test invocation to verify model availability
-            llm.invoke("Test ping")
-            print(f"Successfully initialized Groq LLM with model: {model_name}")
+            llm.invoke("ping")
+            print(f"Successfully connected using Groq model: {model_name}")
             return llm
         except Exception as e:
-            print(f"Model {model_name} failed: {e}. Trying fallback...")
             last_exception = e
             continue
 
-    raise RuntimeError(f"Could not initialize any Groq model. Details: {last_exception}")
+    raise RuntimeError(
+        f"Unable to initialize Groq client. Please verify your API key at https://console.groq.com/keys. Error: {last_exception}"
+    )
 
 def build_rag_graph():
     api_key = GROQ_API_KEY or os.getenv("GROQ_API_KEY")
     if not api_key:
-        raise ValueError("GROQ_API_KEY is not set. Please check your .env file or environment variables.")
+        raise ValueError("GROQ_API_KEY is missing. Check your .env file or environment variables.")
 
     embeddings = HuggingFaceEmbeddings(model_name=EMBEDDING_MODEL_NAME)
     vectorstore = Chroma(
@@ -57,8 +57,7 @@ def build_rag_graph():
         embedding_function=embeddings
     )
     retriever = vectorstore.as_retriever(search_kwargs={"k": 4})
-
-    # Instantiate LLM once during graph creation
+    
     llm = get_active_groq_llm(api_key)
 
     def retrieve_node(state: AgentState):
@@ -90,7 +89,6 @@ User Question: {state['question']}"""
         res = llm.invoke(prompt)
         raw_response = res.content.strip()
 
-        # Clean JSON markdown blocks if present
         if "```json" in raw_response:
             raw_response = raw_response.split("```json")[1].split("```")[0].strip()
         elif "```" in raw_response:
